@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caava Group Security Scanner</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --navy:   #1A2A5E;
+            --red:    #CC1F1F;
+            --light:  #f4f6fb;
+            --border: #d8dde8;
+            --text:   #1c2333;
+            --muted:  #6b7589;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--navy) 0%, #2d3f7a 100%);
+            min-height: 100vh; padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            display: flex; align-items: center; justify-content: space-between;
+            color: white; margin-bottom: 28px; gap: 20px;
+        }
+        .header h1 { font-size: 2em; text-shadow: 1px 2px 6px rgba(0,0,0,.3); }
+        .header p  { font-size: .95em; opacity: .85; margin-top: 6px; }
+        .header-logo {
+            background: white; padding: 10px 18px; border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.2); height: 76px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .header-logo span { font-size: 1.4em; font-weight: 800; color: var(--navy); letter-spacing: -0.5px; }
+        .header-logo span em { color: var(--red); font-style: normal; }
+    </style>
+</head>
+    <style>
+        .tabs {
+            display: flex; gap: 4px;
+            background: rgba(255,255,255,.15); border-radius: 10px;
+            padding: 4px; margin-bottom: 20px; width: fit-content;
+        }
+        .tab-btn {
+            padding: 10px 24px; border: none; border-radius: 8px;
+            font-size: .95em; font-weight: 600; cursor: pointer;
+            background: transparent; color: rgba(255,255,255,.8); transition: all .2s;
+        }
+        .tab-btn.active { background: white; color: var(--navy); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+        .tab-btn:not(.active):hover { background: rgba(255,255,255,.2); color: white; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .card {
+            background: white; border-radius: 12px;
+            padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,.1); margin-bottom: 20px;
+        }
+        .card-title { font-size: 1.1em; font-weight: 700; color: var(--navy); margin-bottom: 20px; }
+        .config-bar {
+            display: flex; flex-wrap: wrap; gap: 18px;
+            padding: 12px 16px; background: #f0f3fb;
+            border-left: 4px solid var(--navy); border-radius: 8px; margin-bottom: 22px; font-size: .88em;
+        }
+        .config-item.enabled  { color: #1a7f5a; font-weight: 600; }
+        .config-item.disabled { color: var(--red); font-weight: 600; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-weight: 600; color: var(--text); margin-bottom: 6px; font-size: .92em; }
+        .form-group input[type="text"],
+        .form-group input[type="url"] {
+            width: 100%; padding: 11px 14px; border: 2px solid var(--border);
+            border-radius: 8px; font-size: 15px; transition: border-color .2s;
+        }
+        .form-group input:focus { outline: none; border-color: var(--navy); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .btn {
+            padding: 11px 26px; font-size: .95em; font-weight: 600; border: none;
+            border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center;
+            gap: 7px; transition: all .2s;
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--navy), #2d3f7a); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 18px rgba(26,42,94,.35); }
+        .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+        .btn-danger { background: #fee; color: var(--red); border: 1px solid #fcc; padding: 6px 12px; font-size: .82em; }
+        .status-bar {
+            display: none; margin-top: 18px; padding: 14px;
+            background: #f0f3fb; border-left: 4px solid var(--navy);
+            border-radius: 8px; font-size: .92em;
+        }
+        .status-bar.active  { display: flex; align-items: center; gap: 10px; }
+        .status-bar.error   { background: #fff0f0; border-left-color: var(--red); }
+        .status-bar.success { background: #f0fff4; border-left-color: #1a7f5a; }
+        .spinner {
+            display: inline-block; width: 15px; height: 15px; flex-shrink: 0;
+            border: 3px solid rgba(26,42,94,.2); border-top-color: var(--navy);
+            border-radius: 50%; animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 12px; margin-bottom: 20px; }
+        .stat-card { padding: 16px; border-radius: 10px; color: white; text-align: center; }
+        .stat-card .val { font-size: 2em; font-weight: 700; line-height: 1; }
+        .stat-card .lbl { font-size: .8em; opacity: .9; margin-top: 4px; }
+        .stat-navy   { background: linear-gradient(135deg, var(--navy), #2d3f7a); }
+        .stat-red    { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+        .stat-orange { background: linear-gradient(135deg, #d35400, #e67e22); }
+        .stat-blue   { background: linear-gradient(135deg, #1a5276, #2980b9); }
+        .stat-teal   { background: linear-gradient(135deg, #117a65, #1abc9c); }
+        .stat-dark   { background: linear-gradient(135deg, #2c3e50, #4a6074); }
+        .download-bar { padding: 14px; background: var(--light); border-radius: 8px; margin-top: 14px; }
+        .download-bar p { font-size: .88em; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+        .download-bar a {
+            display: inline-block; margin-right: 8px; margin-bottom: 6px;
+            padding: 7px 14px; border-radius: 6px; font-size: .85em;
+            text-decoration: none; color: white; transition: all .2s;
+        }
+        .dl-docx { background: var(--navy); }
+        .dl-docx:hover { background: #2d3f7a; transform: translateY(-1px); }
+        .dl-other { background: #4a6074; }
+        .dl-other:hover { background: #2c3e50; }
+        .finding-item { border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 12px; }
+        .finding-header { display: flex; align-items: center; gap: 12px; }
+        .finding-title  { flex: 1; font-size: 1em; font-weight: 600; color: var(--text); }
+        .finding-body   { margin-top: 14px; line-height: 1.65; display: none; }
+        .sev-badge { padding: 4px 10px; border-radius: 5px; font-size: .78em; font-weight: 700; text-transform: uppercase; }
+        .sev-critical { background: #fce4e4; color: #7b0000; }
+        .sev-high     { background: #fee2e2; color: #b91c1c; }
+        .sev-medium   { background: #fff3cd; color: #92400e; }
+        .sev-low      { background: #dbeafe; color: #1e40af; }
+        .sev-info     { background: #e0f2fe; color: #075985; }
+        .finding-section h4 { font-size: .85em; font-weight: 700; color: var(--navy); margin-bottom: 5px; margin-top: 10px; }
+        .finding-section p  { font-size: .9em; color: #4a5568; white-space: pre-wrap; }
+        .toggle-btn { padding: 5px 11px; background: var(--light); border: none; border-radius: 5px; font-size: .8em; cursor: pointer; color: var(--muted); }
+        .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+        .filter-btn { padding: 6px 14px; border-radius: 20px; border: 2px solid transparent; font-size: .82em; font-weight: 600; cursor: pointer; background: var(--light); color: var(--muted); }
+        .filter-btn:hover, .filter-btn.active { border-color: currentColor; }
+        .filter-all      { color: var(--navy); }
+        .filter-critical { color: #7b0000; }
+        .filter-high     { color: #b91c1c; }
+        .filter-medium   { color: #92400e; }
+        .filter-low      { color: #1e40af; }
+        .filter-info     { color: #075985; }
+        .url-table { width: 100%; border-collapse: collapse; font-size: .9em; }
+        .url-table thead th { text-align: left; padding: 10px 14px; background: var(--light); color: var(--muted); font-weight: 600; font-size: .8em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+        .url-table tbody tr:hover { background: var(--light); }
+        .url-table td { padding: 12px 14px; vertical-align: middle; border-bottom: 1px solid var(--border); }
+        .url-cell { font-family: monospace; font-size: .88em; word-break: break-all; }
+        .scan-count { display: inline-block; padding: 3px 10px; background: #e8ebf7; color: var(--navy); border-radius: 12px; font-weight: 700; font-size: .85em; }
+        .mini-badge { padding: 2px 8px; border-radius: 4px; font-size: .75em; font-weight: 600; margin-right: 4px; }
+        .mini-critical { background: #fce4e4; color: #7b0000; }
+        .mini-high     { background: #fee2e2; color: #b91c1c; }
+        .mini-medium   { background: #fff3cd; color: #92400e; }
+        .mini-low      { background: #dbeafe; color: #1e40af; }
+        .mini-info     { background: #e0f2fe; color: #075985; }
+        .date-cell { font-size: .82em; color: var(--muted); white-space: nowrap; }
+        .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
+        @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } .header { flex-direction: column; } }
+    </style>
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>🛡️ Caava Group Security Scanner</h1>
+      <p>ZAP scanning → Claude AI report generation → Branded DOCX output</p>
+    </div>
+    <div class="header-logo">
+      <span>Caava<em>Group</em></span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('scanner',this)">🔍 Scanner</button>
+    <button class="tab-btn"        onclick="switchTab('dashboard',this)">📊 Dashboard</button>
+  </div>
+
+  <!-- SCANNER TAB -->
+  <div id="tab-scanner" class="tab-panel active">
+    <div class="card">
+      <div id="configBar" class="config-bar">
+        <span id="dockerStatus"  class="config-item">🐳 Docker: <span class="status-text">Checking…</span></span>
+        <span id="claudeStatus"  class="config-item">🤖 Claude AI: <span class="status-text">Checking…</span></span>
+      </div>
+
+      <form id="scanForm">
+        <div class="form-group">
+          <label for="targetUrl">Target URL *</label>
+          <input type="url" id="targetUrl" placeholder="https://target.example.com" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="clientName">Client Name</label>
+            <input type="text" id="clientName" placeholder="Caava Group" value="Caava Group">
+          </div>
+          <div class="form-group">
+            <label for="assessmentType">Assessment Type</label>
+            <input type="text" id="assessmentType" placeholder="Web Application Security Assessment" value="Web Application Security Assessment">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="projectName">Report / Project Name</label>
+          <input type="text" id="projectName" placeholder="VAPT-2026-07 – Target Description">
+        </div>
+        <button type="submit" id="scanBtn" class="btn btn-primary">🔍 Start Scan &amp; Generate Report</button>
+      </form>
+
+      <div id="statusBar" class="status-bar">
+        <div class="spinner" id="statusSpinner"></div>
+        <span id="statusText">Initialising…</span>
+      </div>
+    </div>
+
+    <div id="resultsSection" style="display:none">
+      <div class="card">
+        <div class="card-title">📊 Scan Results</div>
+        <div id="scanSummary" class="summary-grid"></div>
+        <div id="downloadBar" class="download-bar" style="display:none">
+          <p>Download Reports</p>
+          <div id="downloadButtons"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔎 Findings Preview</div>
+        <div class="filter-bar">
+          <button class="filter-btn filter-all active"      onclick="filterFindings('all',this)">All</button>
+          <button class="filter-btn filter-critical"        onclick="filterFindings('critical',this)">Critical</button>
+          <button class="filter-btn filter-high"            onclick="filterFindings('high',this)">High</button>
+          <button class="filter-btn filter-medium"          onclick="filterFindings('medium',this)">Medium</button>
+          <button class="filter-btn filter-low"             onclick="filterFindings('low',this)">Low</button>
+          <button class="filter-btn filter-info"            onclick="filterFindings('info',this)">Info</button>
+        </div>
+        <div id="findingsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div id="tab-dashboard" class="tab-panel">
+    <div class="card">
+      <div class="card-title">🌍 Organisation Vulnerability Totals</div>
+      <div id="dashTotals" class="summary-grid"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>🔗 Scanned URLs</span>
+        <button class="btn btn-primary" style="font-size:.82em;padding:7px 14px" onclick="loadDashboard()">↻ Refresh</button>
+      </div>
+      <div id="dashTable"></div>
+    </div>
+  </div>
+</div>
+<script>
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+    if (name === 'dashboard') loadDashboard();
+}
+
+async function loadConfig() {
+    try {
+        const cfg = await fetch('/api/config').then(r => r.json());
+        setStatus('dockerStatus', cfg.docker_available, '🐳 Docker: Available', '🐳 Docker: Not found');
+        setStatus('claudeStatus', cfg.has_claude_key,   '🤖 Claude AI: Configured', '🤖 Claude AI: Missing API key');
+        if (cfg.assessor_company) document.getElementById('clientName').placeholder = cfg.assessor_company;
+    } catch(e) {}
+}
+function setStatus(id, ok, yes, no) {
+    const el = document.getElementById(id);
+    el.classList.toggle('enabled', ok);
+    el.classList.toggle('disabled', !ok);
+    el.querySelector('.status-text').textContent = ok ? yes.split(': ')[1] : no.split(': ')[1];
+}
+
+document.getElementById('scanForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('scanBtn');
+    const bar = document.getElementById('statusBar');
+    document.getElementById('resultsSection').style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Scanning…';
+    bar.className = 'status-bar active';
+    document.getElementById('statusText').textContent = 'Submitting scan…';
+
+    const payload = {
+        url:             document.getElementById('targetUrl').value.trim(),
+        client_name:     document.getElementById('clientName').value.trim(),
+        assessment_type: document.getElementById('assessmentType').value.trim(),
+        project_name:    document.getElementById('projectName').value.trim()
+    };
+
+    try {
+        const res = await fetch('/api/scan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed to start scan'); }
+        const { job_id } = await res.json();
+        await pollJob(job_id);
+    } catch(err) {
+        bar.className = 'status-bar active error';
+        document.getElementById('statusSpinner').style.display = 'none';
+        document.getElementById('statusText').textContent = '❌ ' + err.message;
+        btn.disabled = false; btn.innerHTML = '🔍 Start Scan &amp; Generate Report';
+    }
+});
+
+async function pollJob(job_id) {
+    const btn = document.getElementById('scanBtn');
+    const bar = document.getElementById('statusBar');
+    while (true) {
+        await new Promise(r => setTimeout(r, 3000));
+        let job;
+        try { job = await fetch(`/api/scan/status/${job_id}`).then(r => r.json()); }
+        catch(e) { continue; }
+        document.getElementById('statusText').textContent = `[${job.progress||0}%] ${job.message||'Working…'}`;
+        if (job.status === 'done') {
+            showResults(job.result);
+            bar.className = 'status-bar active success';
+            document.getElementById('statusSpinner').style.display = 'none';
+            document.getElementById('statusText').textContent = `✅ Done — ${job.result.findings_count} finding(s). Report ready to download.`;
+            btn.disabled = false; btn.innerHTML = '🔍 Start Scan &amp; Generate Report';
+            return;
+        }
+        if (job.status === 'error') {
+            bar.className = 'status-bar active error';
+            document.getElementById('statusSpinner').style.display = 'none';
+            document.getElementById('statusText').textContent = '❌ ' + job.message;
+            btn.disabled = false; btn.innerHTML = '🔍 Start Scan &amp; Generate Report';
+            return;
+        }
+    }
+}
+
+let allFindings = [];
+function showResults(result) {
+    allFindings = result.findings || [];
+    const c = {critical:0, high:0, medium:0, low:0, info:0};
+    allFindings.forEach(f => { const s=(f.severity||'info').toLowerCase(); c[s]=(c[s]||0)+1; });
+    document.getElementById('scanSummary').innerHTML = `
+        <div class="stat-card stat-navy"><div class="val">${result.findings_count}</div><div class="lbl">Total</div></div>
+        <div class="stat-card stat-red"><div class="val">${c.critical}</div><div class="lbl">Critical</div></div>
+        <div class="stat-card" style="background:linear-gradient(135deg,#b91c1c,#e74c3c)"><div class="val">${c.high}</div><div class="lbl">High</div></div>
+        <div class="stat-card stat-orange"><div class="val">${c.medium}</div><div class="lbl">Medium</div></div>
+        <div class="stat-card stat-blue"><div class="val">${c.low}</div><div class="lbl">Low</div></div>
+        <div class="stat-card stat-teal"><div class="val">${c.info}</div><div class="lbl">Info</div></div>
+    `;
+    const btns = [];
+    if (result.report_file)
+        btns.push(`<a href="/api/download/report/${encodeURIComponent(result.report_file)}" class="dl-docx">📄 Download DOCX Report</a>`);
+    if (result.scan_files) {
+        const labels = {json:'ZAP JSON', html:'ZAP HTML'};
+        Object.entries(result.scan_files).forEach(([k, path]) => {
+            const f = path.split('/').pop();
+            btns.push(`<a href="/api/download/${encodeURIComponent(f)}" class="dl-other">${labels[k]||f}</a>`);
+        });
+    }
+    if (btns.length) {
+        document.getElementById('downloadButtons').innerHTML = btns.join('');
+        document.getElementById('downloadBar').style.display = 'block';
+    }
+    renderFindings(allFindings);
+    document.getElementById('resultsSection').style.display = 'block';
+}
+
+function filterFindings(sev, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderFindings(sev === 'all' ? allFindings : allFindings.filter(f => (f.severity||'info').toLowerCase() === sev));
+}
+
+function renderFindings(list) {
+    const el = document.getElementById('findingsList');
+    if (!list.length) { el.innerHTML = '<p style="text-align:center;padding:30px;color:var(--muted)">No findings in this category.</p>'; return; }
+    el.innerHTML = list.map((f, i) => {
+        const sev = (f.severity||'info').toLowerCase();
+        const aff = f.affected_components || [];
+        return `<div class="finding-item">
+            <div class="finding-header">
+                <span class="sev-badge sev-${sev}">${sev}</span>
+                <div class="finding-title">${x(f.title||'Untitled')} ${f.cvss_score?`<small style="color:var(--muted);font-weight:400">(CVSS ${f.cvss_score})</small>`:''}</div>
+                <button class="toggle-btn" onclick="toggleBody('fb${i}',this)">▼ Expand</button>
+            </div>
+            <div id="fb${i}" class="finding-body">
+                ${f.overview?`<div class="finding-section"><h4>Overview</h4><p>${x(f.overview)}</p></div>`:''}
+                ${f.vulnerability_details?`<div class="finding-section"><h4>Technical Details</h4><p>${x(f.vulnerability_details)}</p></div>`:''}
+                ${aff.length?`<div class="finding-section"><h4>Affected Components</h4><ul>${aff.slice(0,8).map(a=>`<li style="font-size:.85em;font-family:monospace;padding:4px 0">${x(typeof a==='object'?a.component+': '+a.details:a)}</li>`).join('')}</ul></div>`:''}
+            </div>
+        </div>`;
+    }).join('');
+}
+function toggleBody(id, btn) {
+    const el = document.getElementById(id);
+    const show = !el.style.display || el.style.display === 'none';
+    el.style.display = show ? 'block' : 'none';
+    btn.textContent  = show ? '▲ Collapse' : '▼ Expand';
+}
+
+async function loadDashboard() {
+    try {
+        const d = await fetch('/api/dashboard').then(r => r.json());
+        const t = d.totals || {};
+        document.getElementById('dashTotals').innerHTML = `
+            <div class="stat-card stat-dark"><div class="val">${d.total_urls}</div><div class="lbl">Unique URLs</div></div>
+            <div class="stat-card stat-navy"><div class="val">${d.total_scans}</div><div class="lbl">Total Scans</div></div>
+            <div class="stat-card stat-red"><div class="val">${t.critical||0}</div><div class="lbl">Critical</div></div>
+            <div class="stat-card" style="background:linear-gradient(135deg,#b91c1c,#e74c3c)"><div class="val">${t.high||0}</div><div class="lbl">High</div></div>
+            <div class="stat-card stat-orange"><div class="val">${t.medium||0}</div><div class="lbl">Medium</div></div>
+            <div class="stat-card stat-blue"><div class="val">${t.low||0}</div><div class="lbl">Low</div></div>
+        `;
+        const urls = d.urls || [];
+        if (!urls.length) { document.getElementById('dashTable').innerHTML = '<div class="empty-state"><div>🔍</div><p>No scans yet.</p></div>'; return; }
+        document.getElementById('dashTable').innerHTML = `<table class="url-table"><thead><tr><th>URL</th><th>Scans</th><th>Latest Findings</th><th>Last Scanned</th><th></th></tr></thead><tbody>${
+            urls.map(u => {
+                const lc = u.latest || {};
+                const badges = ['critical','high','medium','low','info'].map(s => lc[s]?`<span class="mini-badge mini-${s}">${lc[s]}${s[0].toUpperCase()}</span>`:'').join('');
+                return `<tr>
+                    <td class="url-cell">${x(u.url)}</td>
+                    <td><span class="scan-count">${u.scan_count||1}</span></td>
+                    <td>${badges||'<span style="color:var(--muted);font-size:.8em">none</span>'}</td>
+                    <td class="date-cell">${u.last_scanned?new Date(u.last_scanned).toLocaleString():'—'}</td>
+                    <td><button class="btn btn-danger" onclick="deleteEntry('${encodeURIComponent(u.url)}',this)">🗑</button></td>
+                </tr>`;
+            }).join('')
+        }</tbody></table>`;
+    } catch(e) { document.getElementById('dashTable').innerHTML = '<p style="padding:20px;color:var(--red)">Failed to load.</p>'; }
+}
+
+async function deleteEntry(encodedUrl, btn) {
+    if (!confirm('Remove this URL from the dashboard?')) return;
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/dashboard/delete/' + encodedUrl, {method:'DELETE'});
+        if (res.ok) loadDashboard(); else { alert('Could not remove.'); btn.disabled = false; }
+    } catch(e) { alert('Network error.'); btn.disabled = false; }
+}
+
+function x(str) { const d = document.createElement('div'); d.textContent = String(str||''); return d.innerHTML; }
+
+loadConfig();
+</script>
+</body>
+</html>
